@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="InvenTree_ACS_Automated_Suite" tests="8" failures="3" time="0.0114">
+  <testsuite name="InvenTree_Backend_And_Security_Tests" tests="8" failures="3" time="0.0114">
+    <testcase classname="src/backend/InvenTree/InvenTree/helpers.py#L617-L832" name="CP-AUT-01: Validación de extracción y generación por lotes de números de serie (extract_serial_numbers)" time="0.0077" />
+    <testcase classname="src/backend/InvenTree/stock/models.py#L1104-L1185" name="CP-AUT-02: Validación de integridad de lotes de inventario y partes rastreables/virtuales (StockItem.clean)" time="0.0003" />
+    <testcase classname="src/backend/InvenTree/order/models.py#L3256-L3318" name="CP-AUT-03: Control de límites de asignación multi-orden (Build + Sales + Transfer) en SalesOrderAllocation" time="0.0002" />
+    <testcase classname="src/backend/InvenTree/stock/models.py#L2860-L2875" name="CP-AUT-04: Integridad referencial de SalesOrderAllocation y TransferOrderAllocation en StockItem.merge_stock_items" time="0.0020">
+      <failure message="DEF-01 DETECTADO en stock/models.py#L2865-L2874: merge_stock_items asigna &quot;allocation.stock_item = self&quot; en lugar de &quot;allocation.item = self&quot; sobre SalesOrderAllocation y omite &quot;other.transfer_order_allocations&quot;, provocando borrado en cascada (on_delete=CASCADE) al ejecutar other.delete().
+
+true !== false
+" type="AssertionError">DEF-01 DETECTADO en stock/models.py#L2865-L2874: merge_stock_items asigna &quot;allocation.stock_item = self&quot; en lugar de &quot;allocation.item = self&quot; sobre SalesOrderAllocation y omite &quot;other.transfer_order_allocations&quot;, provocando borrado en cascada (on_delete=CASCADE) al ejecutar other.delete().
+
+true !== false
+</failure>
+    </testcase>
+    <testcase classname="src/backend/InvenTree/InvenTree/helpers.py#L513-L535" name="CP-AUT-05: Protección contra inyección de fórmulas CSV/Excel (OWASP CSV Injection) en escape_export_value" time="0.0004" />
+    <testcase classname="src/backend/InvenTree/InvenTree/helpers.py#L1173-L1196" name="CP-AUT-06: Enmascaramiento seguro de tokens de API en valores límite (sanitize_token con back=0)" time="0.0003">
+      <failure message="DEF-02 DETECTADO en helpers.py#L1195: Al invocar sanitize_token(token, front=8, back=0), la expresión Python &quot;token_value[-back:]&quot; evalúa &quot;token_value[-0:]&quot; == &quot;token_value[0:]&quot;, concatenando el token secreto íntegro al final: &quot;inv-9f8e********************************inv-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a&quot;" type="AssertionError">DEF-02 DETECTADO en helpers.py#L1195: Al invocar sanitize_token(token, front=8, back=0), la expresión Python &quot;token_value[-back:]&quot; evalúa &quot;token_value[-0:]&quot; == &quot;token_value[0:]&quot;, concatenando el token secreto íntegro al final: &quot;inv-9f8e********************************inv-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a&quot;</failure>
+    </testcase>
+    <testcase classname="src/backend/InvenTree/InvenTree/helpers.py#L38-L123" name="CP-AUT-07: Extracción y acotamiento de enteros sin signo (extract_int con allow_negative=False)" time="0.0003">
+      <failure message="DEF-03 DETECTADO en helpers.py#L67-L84: extract_int(&quot;-500&quot;, clip=100, allow_negative=False) retorna -100 (negativo) porque do_clip hace &quot;elif value &lt; -clip: return -clip&quot; antes de aplicar abs(value)." type="AssertionError">DEF-03 DETECTADO en helpers.py#L67-L84: extract_int(&quot;-500&quot;, clip=100, allow_negative=False) retorna -100 (negativo) porque do_clip hace &quot;elif value &lt; -clip: return -clip&quot; antes de aplicar abs(value).</failure>
+    </testcase>
+    <testcase classname="src/backend/InvenTree/users/authentication.py#L63-L103" name="CP-AUT-08: Verificación de ciclo de vida de ApiToken, políticas MFA y matriz RBAC (RuleSetEnum)" time="0.0001" />
+  </testsuite>
+</testsuites>

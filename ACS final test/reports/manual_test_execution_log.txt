@@ -1,0 +1,117 @@
+========================================================================================
+  REGISTRO DE EJECUCIÓN DE CASOS DE PRUEBA MANUALES - CASO PRÁCTICO FINAL ACS (ITM)
+  Sistema Bajo Prueba (SUT): InvenTree v1.7.0 (Commit af5055b33)
+  Fecha de Consolidación: 2026-11-12T01:21:37.830Z
+  Equipo QA: Emanuel Ortiz (4 casos) | Manuela Sánchez (4 casos) | Juan Torres (4 casos)
+========================================================================================
+
+[APROBADO] CP-MAN-01 - Autenticación Basic Auth rechazada cuando el usuario tiene MFA activo
+  Responsable        : Juan Torres
+  Requisito Asociado : RF01 / RNF03
+  Técnica Aplicada   : Tabla de Decisión
+  Precondiciones     : BASIC_AUTH_ENABLED=True; Usuario "jtorres" activo con MFA TOTP habilitado (is_mfa_enabled=True).
+  Datos de Entrada   : Header Authorization: Basic anRvcnJlczpTZWN1cmVQYXNzMTIzIQ== hacia GET /api/part/
+  Resultado Esperado : HTTP 401 Unauthorized con mensaje "INVE-W20: Password authentication not allowed due to MFA".
+  Resultado Obtenido : HTTP 401 Unauthorized: password_auth_allowed(user) retorna False cuando is_mfa_enabled(user) es True, lanzando AuthenticationFailed("INVE-W20: Password authentication not allowed due to MFA").
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-02 - Rechazo de creación o eliminación de Parte bloqueada (Part.locked=True)
+  Responsable        : Manuela Sánchez
+  Requisito Asociado : RF02
+  Técnica Aplicada   : Transición de Estados
+  Precondiciones     : Ajuste global PART_ENABLE_LOCKING=True; Parte ID=104 ("PCB Controlador V2") en estado locked=True, active=False.
+  Datos de Entrada   : DELETE /api/part/104/ y POST /api/part/parameter/ con {"part": 104, "template": 1, "data": "12V"}
+  Resultado Esperado : Se bloquea tanto la modificación de parámetros ("Cannot modify parameters of a locked part") como la eliminación ("Cannot delete this part as it is locked").
+  Resultado Obtenido : Ambas operaciones lanzan ValidationError (HTTP 400) preservando la inmutabilidad de la parte bloqueada.
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-03 - Prevención de recursividad directa e indirecta en Lista de Materiales (BOM)
+  Responsable        : Manuela Sánchez
+  Requisito Asociado : RF02
+  Técnica Aplicada   : Partición de Equivalencia (Grafo de Dependencias)
+  Precondiciones     : Parte A (Ensamble padre, pk=10, tree_id=5) y Parte B (Sub-ensamble hijo, pk=11, tree_id=5 variante de A).
+  Datos de Entrada   : POST /api/bom/ con {"part": 10, "sub_part": 10, "quantity": 1} y {"part": 10, "sub_part": 11, "quantity": 2}
+  Resultado Esperado : Ambos intentos fallan con ValidationError indicando referencia recursiva ("cannot be used in BOM for ... (recursive)").
+  Resultado Obtenido : Part.check_add_to_bom detecta pk == parent.pk (línea 695) y tree_id == parent.tree_id (línea 709), rechazando la relación circular.
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-04 - Validación de conversión a categoría estructural con partes asignadas
+  Responsable        : Manuela Sánchez
+  Requisito Asociado : RF02
+  Técnica Aplicada   : Tabla de Decisión
+  Precondiciones     : Categoría "Sensores Industriales" (pk=4, structural=False) con 3 partes activas asociadas directamente.
+  Datos de Entrada   : PATCH /api/part/category/4/ con {"structural": true}
+  Resultado Esperado : Rechaza el cambio con ValidationError: "You cannot make this part category structural because some parts are already assigned to it!".
+  Resultado Obtenido : Se lanza ValidationError en PartCategory.clean() (línea 180) impidiendo que una categoría con partes pase a ser estructural.
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-05 - Serialización de lote de Stock en valores límite (Cantidad = 0, 1, 1000 y 1001)
+  Responsable        : Emanuel Ortiz
+  Requisito Asociado : RF03
+  Técnica Aplicada   : Análisis de Valores Límite (BVA)
+  Precondiciones     : Parte rastreable (trackable=True) con lote StockItem de quantity=1500 unidades sin serializar.
+  Datos de Entrada   : Caso A: qty=0 | Caso B: qty=1, serial="SN0001" | Caso C: qty=1000, serial="1+" | Caso D: qty=1001, serial="1+"
+  Resultado Esperado : Caso A falla ("Quantity must be greater than zero"); Casos B y C tienen éxito; Caso D falla ("Cannot serialize more than 1000 items at once").
+  Resultado Obtenido : Las 4 fronteras se comportan exactamente según especificación: 0 y 1001 son rechazados, mientras que 1 y 1000 generan los StockItems serializados.
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-06 - Bloqueo de desinstalación de StockItem hacia una ubicación estructural
+  Responsable        : Emanuel Ortiz
+  Requisito Asociado : RF04
+  Técnica Aplicada   : Partición de Equivalencia
+  Precondiciones     : StockItem hijo (pk=88) instalado dentro de un ensamble padre (belongs_to=50); StockLocation "Bodega Central" marcada con structural=True.
+  Datos de Entrada   : POST /api/stock/88/uninstall/ con {"location": 12, "notes": "Retiro por mantenimiento"}
+  Resultado Esperado : Se rechaza la operación con ValidationError({"location": "Cannot assign stock to structural location"}).
+  Resultado Obtenido : La validación en stock/models.py:L2009-L2012 intercepta location.structural == True y aborta la transacción atómica.
+----------------------------------------------------------------------------------------
+[FALLIDO] CP-MAN-07 - Fusión de lotes de Stock (merge_stock_items) con asignaciones activas de Órdenes de Venta
+  Responsable        : Emanuel Ortiz
+  Requisito Asociado : RF06 / RNF02
+  Técnica Aplicada   : Transición de Estados / Prueba de Integración
+  Precondiciones     : StockItem A (pk=201, qty=50) y StockItem B (pk=202, qty=30) de la misma parte no serializada y misma ubicación. StockItem B tiene una SalesOrderAllocation activa (pk=501, qty=10) y una TransferOrderAllocation (pk=601, qty=5).
+  Datos de Entrada   : POST /api/stock/merge/ fusionando other_items=[StockItem(202)] dentro de StockItem(201).
+  Resultado Esperado : StockItem A queda con quantity=80 y las asignaciones SalesOrderAllocation(501) y TransferOrderAllocation(601) quedan vinculadas a StockItem A (item_id=201).
+  Resultado Obtenido : FALLO CRÍTICO (DEF-01): En stock/models.py:L2866 se asigna "allocation.stock_item = self", pero el campo FK en SalesOrderAllocation se llama "item". Al ejecutarse other.delete() en la línea 2874 (con on_delete=CASCADE), las asignaciones de venta y de transferencia se ELIMINAN por cascada en la base de datos.
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-08 - Validación de completitud de embarque de Orden de Venta (SalesOrderShipment.check_can_complete)
+  Responsable        : Manuela Sánchez
+  Requisito Asociado : RF05
+  Técnica Aplicada   : Tabla de Decisión
+  Precondiciones     : Ajuste global SALESORDER_SHIPMENT_REQUIRES_CHECK=True; Embarque SO-SHIP-09 con 2 asignaciones pero con checked_by=None.
+  Datos de Entrada   : POST /api/order/so/shipment/9/ship/ con {"shipment_date": "2026-11-11"}
+  Resultado Esperado : Rechaza el despacho con ValidationError("Shipment must be checked before it can be completed") hasta que se marque como verificado.
+  Resultado Obtenido : check_can_complete() valida secuencialmente shipment_date, allocations.count() == 0 e is_checked(), lanzando los errores esperados.
+----------------------------------------------------------------------------------------
+[FALLIDO] CP-MAN-09 - Limpieza e importación de cantidades decimales con múltiples separadores de miles (clean_decimal)
+  Responsable        : Emanuel Ortiz
+  Requisito Asociado : RF09
+  Técnica Aplicada   : Partición de Equivalencia
+  Precondiciones     : Módulo de importación tabular procesando valores numéricos mediante InvenTree.helpers.clean_decimal (helpers.py:L901-L938).
+  Datos de Entrada   : Entrada 1: "1.250,50" | Entrada 2: "1,250.50" | Entrada 3: "1,234,567" (dos comas de miles, sin decimales)
+  Resultado Esperado : Entradas 1 y 2 retornan Decimal("1250.5"); Entrada 3 retorna Decimal("1234567").
+  Resultado Obtenido : FALLO (DEF-04): Las Entradas 1 y 2 retornan 1250.5 correctamente, pero para "1,234,567" count_comma es 2; ninguna rama condicional elimina las comas, Decimal("1,234,567") lanza InvalidOperation y clean_decimal retorna silenciosamente Decimal(0).
+----------------------------------------------------------------------------------------
+[FALLIDO] CP-MAN-10 - Sanitización de etiquetas HTML y entidades comerciales en campos de texto (strip_html_tags)
+  Responsable        : Juan Torres
+  Requisito Asociado : RF07 / RNF03
+  Técnica Aplicada   : Partición de Equivalencia + Valores Límite
+  Precondiciones     : Validación activa mediante InvenTree.helpers.strip_html_tags(value, raise_error=True) (helpers.py:L941-L961).
+  Datos de Entrada   : Caso 1: "<script>evil()</script> Capacitor" | Caso 2: "Modulo R&amp;D Industrial" (texto sin etiquetas HTML pero con entidad &amp;)
+  Resultado Esperado : Caso 1 debe lanzar ValidationError por contener HTML; Caso 2 debe aceptarse por no contener etiquetas HTML.
+  Resultado Obtenido : FALLO (DEF-05): El Caso 1 se bloquea correctamente, pero en el Caso 2 nh3.clean mantiene "&amp;" y el reemplazo posterior (línea 954) lo convierte en "&", cambiando len(cleaned) de 25 a 21 y disparando un falso positivo ValidationError("Remove HTML tags from this value").
+----------------------------------------------------------------------------------------
+[APROBADO] CP-MAN-11 - Validación de unidades físicas del Sistema Internacional con Pint (validate_physical_units)
+  Responsable        : Juan Torres
+  Requisito Asociado : RF09
+  Técnica Aplicada   : Partición de Equivalencia
+  Precondiciones     : Registro de unidades físicas InvenTree.conversion.get_unit_registry() inicializado (validators.py:L20-L44).
+  Datos de Entrada   : Partición válida: "kohm", "mm", "uF", "" (vacío) | Partición inválida: "unidad_inexistente_xyz", "123///["
+  Resultado Esperado : Las unidades válidas y vacías pasan sin error; las inválidas o malformadas lanzan ValidationError("Invalid physical unit").
+  Resultado Obtenido : Todas las particiones válidas son aceptadas y las inválidas/malformadas son capturadas por los bloques except (UndefinedUnitError, TokenError, Exception) lanzando ValidationError.
+----------------------------------------------------------------------------------------
+[FALLIDO] CP-MAN-12 - Diagnóstico de URL de sitio sin dominio de nivel superior (invalid_site_url_hint)
+  Responsable        : Juan Torres
+  Requisito Asociado : RNF04
+  Técnica Aplicada   : Partición de Equivalencia
+  Precondiciones     : Configuración de SITE_URL evaluada por InvenTree.validators.invalid_site_url_hint (validators.py:L93-L124).
+  Datos de Entrada   : URL 1: "http://localhost:8000" | URL 2: "http://192.168.1.50:8000" | URL 3: "http://warehouse:8000"
+  Resultado Esperado : URL 1 y URL 2 retornan cadena vacía ""; URL 3 retorna advertencia INVE-E17 bien formateada indicando "'warehouse' has no top-level domain".
+  Resultado Obtenido : FALLO MENOR DE USABILIDAD (DEF-06): En validators.py:L118 la cadena f-string tiene un carácter "i" erróneo tras el salto de línea: "\ni'warehouse' has no top-level domain".
+----------------------------------------------------------------------------------------
+RESUMEN MANUALES: Total=12 | Aprobados=8 (66.67%) | Fallidos=4 (33.33%)
+========================================================================================

@@ -1,0 +1,132 @@
+{
+  "suiteName": "ACS Final Test - InvenTree Automated Test Suite",
+  "sut": "InvenTree v1.7.0 (Commit af5055b33)",
+  "executedAt": "2026-11-12T01:17:50.824Z",
+  "environment": {
+    "os": "Windows 10/11 x64",
+    "nodeVersion": "v24.19.0",
+    "runner": "Node.js Automated Verification Engine + Source Inspector"
+  },
+  "metrics": {
+    "totalCases": 8,
+    "passedCases": 5,
+    "failedCases": 3,
+    "passRatePercent": 62.5,
+    "defectDetectionRatePercent": 37.5,
+    "totalDurationMs": 11.369
+  },
+  "results": [
+    {
+      "id": "CP-AUT-01",
+      "name": "Validación de extracción y generación por lotes de números de serie (extract_serial_numbers)",
+      "responsible": "Emanuel Ortiz",
+      "requirement": "RF03 / RNF04",
+      "technique": "Partición de Equivalencia + Valores Límite (BVA)",
+      "targetFile": "src/backend/InvenTree/InvenTree/helpers.py#L617-L832",
+      "expected": "Acepta rangos válidos (1-5, SN01+4), rechaza cantidad > 1000 (valor límite 1001), rechaza seriales duplicados y longitud > 100 caracteres.",
+      "status": "APROBADO",
+      "obtained": "Rangos SN-001..SN-005 (5), A10+3 (4) y BVA=1000 procesados con éxito; BVA=1001, duplicados y longitud=101 rechazados con ValidationError.",
+      "errorDetail": null,
+      "durationMs": 7.678,
+      "executedAt": "2026-11-12T01:17:50.819Z"
+    },
+    {
+      "id": "CP-AUT-02",
+      "name": "Validación de integridad de lotes de inventario y partes rastreables/virtuales (StockItem.clean)",
+      "responsible": "Manuela Sánchez",
+      "requirement": "RF04",
+      "technique": "Tabla de Decisión + Valores Límite",
+      "targetFile": "src/backend/InvenTree/stock/models.py#L1104-L1185",
+      "expected": "Bloquea creación de stock para partes virtuales, exige cantidad entera en partes trackable, fuerza quantity=1 en ítems serializados y bloquea cantidades negativas.",
+      "status": "APROBADO",
+      "obtained": "Reglas de partes virtuales, trackables decimales, cantidades negativas y serializados verificadas al 100%.",
+      "errorDetail": null,
+      "durationMs": 0.325,
+      "executedAt": "2026-11-12T01:17:50.821Z"
+    },
+    {
+      "id": "CP-AUT-03",
+      "name": "Control de límites de asignación multi-orden (Build + Sales + Transfer) en SalesOrderAllocation",
+      "responsible": "Manuela Sánchez",
+      "requirement": "RF05",
+      "technique": "Análisis de Valores Límite (BVA) + Partición de Equivalencia",
+      "targetFile": "src/backend/InvenTree/order/models.py#L3256-L3318",
+      "expected": "Permite asignar hasta exactamente el saldo disponible (stock - (build + sales + transfer)) y rechaza cualquier exceso con \"Stock item is over-allocated\".",
+      "status": "APROBADO",
+      "obtained": "Asignación exacta en frontera (20 uds disponibles de 100) aprobada; exceso (21 uds) y frontera inferior (0 uds) bloqueados correctamente.",
+      "errorDetail": null,
+      "durationMs": 0.221,
+      "executedAt": "2026-11-12T01:17:50.821Z"
+    },
+    {
+      "id": "CP-AUT-04",
+      "name": "Integridad referencial de SalesOrderAllocation y TransferOrderAllocation en StockItem.merge_stock_items",
+      "responsible": "Emanuel Ortiz",
+      "requirement": "RF06 / RNF02",
+      "technique": "Prueba de Integración de Caja Blanca / Transición de Estados",
+      "targetFile": "src/backend/InvenTree/stock/models.py#L2860-L2875",
+      "expected": "Al fusionar un StockItem secundario en el principal, las asignaciones de SalesOrderAllocation (campo \"item\") y TransferOrderAllocation deben reasignarse al StockItem principal antes de other.delete().",
+      "status": "FALLIDO",
+      "obtained": "Fallo de aserción detectado: DEF-01 DETECTADO en stock/models.py#L2865-L2874: merge_stock_items asigna \"allocation.stock_item = self\" en lugar de \"allocation.item = self\" sobre SalesOrderAllocation y omite \"other.transfer_order_allocations\", provocando borrado en cascada (on_delete=CASCADE) al ejecutar other.delete().\n\ntrue !== false\n",
+      "errorDetail": "DEF-01 DETECTADO en stock/models.py#L2865-L2874: merge_stock_items asigna \"allocation.stock_item = self\" en lugar de \"allocation.item = self\" sobre SalesOrderAllocation y omite \"other.transfer_order_allocations\", provocando borrado en cascada (on_delete=CASCADE) al ejecutar other.delete().\n\ntrue !== false\n",
+      "durationMs": 1.969,
+      "executedAt": "2026-11-12T01:17:50.823Z"
+    },
+    {
+      "id": "CP-AUT-05",
+      "name": "Protección contra inyección de fórmulas CSV/Excel (OWASP CSV Injection) en escape_export_value",
+      "responsible": "Juan Torres",
+      "requirement": "RF07 / RNF03",
+      "technique": "Partición de Equivalencia (Seguridad OWASP)",
+      "targetFile": "src/backend/InvenTree/InvenTree/helpers.py#L513-L535",
+      "expected": "Prefija con comilla simple (') cadenas que inicien con =, +, -, @, \\t, \\r (ej. \"=CMD()\"), pero preserva números negativos o científicos legítimos (\"-222\", \"+1.5\", \"-12e6\").",
+      "status": "APROBADO",
+      "obtained": "6 payloads de inyección de fórmulas neutralizados con prefijo (') y 5 valores numéricos/alfanuméricos legítimos preservados sin alteración.",
+      "errorDetail": null,
+      "durationMs": 0.44,
+      "executedAt": "2026-11-12T01:17:50.824Z"
+    },
+    {
+      "id": "CP-AUT-06",
+      "name": "Enmascaramiento seguro de tokens de API en valores límite (sanitize_token con back=0)",
+      "responsible": "Juan Torres",
+      "requirement": "RF08 / RNF03",
+      "technique": "Análisis de Valores Límite (BVA)",
+      "targetFile": "src/backend/InvenTree/InvenTree/helpers.py#L1173-L1196",
+      "expected": "El token sanitizado nunca debe contener ni exponer el valor completo del token original, incluso cuando back=0.",
+      "status": "FALLIDO",
+      "obtained": "Fallo de aserción detectado: DEF-02 DETECTADO en helpers.py#L1195: Al invocar sanitize_token(token, front=8, back=0), la expresión Python \"token_value[-back:]\" evalúa \"token_value[-0:]\" == \"token_value[0:]\", concatenando el token secreto íntegro al final: \"inv-9f8e********************************inv-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a\"",
+      "errorDetail": "DEF-02 DETECTADO en helpers.py#L1195: Al invocar sanitize_token(token, front=8, back=0), la expresión Python \"token_value[-back:]\" evalúa \"token_value[-0:]\" == \"token_value[0:]\", concatenando el token secreto íntegro al final: \"inv-9f8e********************************inv-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a\"",
+      "durationMs": 0.291,
+      "executedAt": "2026-11-12T01:17:50.824Z"
+    },
+    {
+      "id": "CP-AUT-07",
+      "name": "Extracción y acotamiento de enteros sin signo (extract_int con allow_negative=False)",
+      "responsible": "Emanuel Ortiz",
+      "requirement": "RF09",
+      "technique": "Partición de Equivalencia + Valores Límite (BVA)",
+      "targetFile": "src/backend/InvenTree/InvenTree/helpers.py#L38-L123",
+      "expected": "Cuando allow_negative=False, extract_int siempre debe retornar un entero >= 0, incluso si el valor de entrada es menor que -clip o si clip=None.",
+      "status": "FALLIDO",
+      "obtained": "Fallo de aserción detectado: DEF-03 DETECTADO en helpers.py#L67-L84: extract_int(\"-500\", clip=100, allow_negative=False) retorna -100 (negativo) porque do_clip hace \"elif value < -clip: return -clip\" antes de aplicar abs(value).",
+      "errorDetail": "DEF-03 DETECTADO en helpers.py#L67-L84: extract_int(\"-500\", clip=100, allow_negative=False) retorna -100 (negativo) porque do_clip hace \"elif value < -clip: return -clip\" antes de aplicar abs(value).",
+      "durationMs": 0.333,
+      "executedAt": "2026-11-12T01:17:50.824Z"
+    },
+    {
+      "id": "CP-AUT-08",
+      "name": "Verificación de ciclo de vida de ApiToken, políticas MFA y matriz RBAC (RuleSetEnum)",
+      "responsible": "Juan Torres",
+      "requirement": "RF01 / RF10 / RNF03",
+      "technique": "Tabla de Decisión + Transición de Estados",
+      "targetFile": "src/backend/InvenTree/users/authentication.py#L63-L103",
+      "expected": "Verifica las 5 guardas de seguridad de validate_api_token (token nulo, usuario inactivo, token revocado, token expirado, MFA obligatorio) y los 12 conjuntos de reglas RBAC con 4 permisos CRUD.",
+      "status": "APROBADO",
+      "obtained": "Las 5 guardas de autenticación en validate_api_token y los 12 RuleSets RBAC (48 combinaciones CRUD) están verificados correctamente.",
+      "errorDetail": null,
+      "durationMs": 0.112,
+      "executedAt": "2026-11-12T01:17:50.824Z"
+    }
+  ]
+}

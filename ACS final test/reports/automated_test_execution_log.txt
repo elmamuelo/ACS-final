@@ -1,0 +1,61 @@
+========================================================================================
+  EJECUCIÓN DE PRUEBAS AUTOMATIZADAS - CASO PRÁCTICO FINAL ACS (ITM)
+  Sistema Bajo Prueba (SUT): InvenTree v1.7.0 (Commit af5055b33)
+  Fecha de Ejecución: 2026-11-12T01:17:50.824Z
+  Entorno: Node.js v24.19.0 | Windows x64
+========================================================================================
+
+[ PASS ] CP-AUT-01 (7.678 ms) - Validación de extracción y generación por lotes de números de serie (extract_serial_numbers)
+         Responsable : Emanuel Ortiz
+         Técnica     : Partición de Equivalencia + Valores Límite (BVA)
+         Archivo SUT : src/backend/InvenTree/InvenTree/helpers.py#L617-L832
+         Resultado   : Rangos SN-001..SN-005 (5), A10+3 (4) y BVA=1000 procesados con éxito; BVA=1001, duplicados y longitud=101 rechazados con ValidationError.
+
+[ PASS ] CP-AUT-02 (0.325 ms) - Validación de integridad de lotes de inventario y partes rastreables/virtuales (StockItem.clean)
+         Responsable : Manuela Sánchez
+         Técnica     : Tabla de Decisión + Valores Límite
+         Archivo SUT : src/backend/InvenTree/stock/models.py#L1104-L1185
+         Resultado   : Reglas de partes virtuales, trackables decimales, cantidades negativas y serializados verificadas al 100%.
+
+[ PASS ] CP-AUT-03 (0.221 ms) - Control de límites de asignación multi-orden (Build + Sales + Transfer) en SalesOrderAllocation
+         Responsable : Manuela Sánchez
+         Técnica     : Análisis de Valores Límite (BVA) + Partición de Equivalencia
+         Archivo SUT : src/backend/InvenTree/order/models.py#L3256-L3318
+         Resultado   : Asignación exacta en frontera (20 uds disponibles de 100) aprobada; exceso (21 uds) y frontera inferior (0 uds) bloqueados correctamente.
+
+[ FAIL ] CP-AUT-04 (1.969 ms) - Integridad referencial de SalesOrderAllocation y TransferOrderAllocation en StockItem.merge_stock_items
+         Responsable : Emanuel Ortiz
+         Técnica     : Prueba de Integración de Caja Blanca / Transición de Estados
+         Archivo SUT : src/backend/InvenTree/stock/models.py#L2860-L2875
+         Resultado   : Fallo de aserción detectado: DEF-01 DETECTADO en stock/models.py#L2865-L2874: merge_stock_items asigna "allocation.stock_item = self" en lugar de "allocation.item = self" sobre SalesOrderAllocation y omite "other.transfer_order_allocations", provocando borrado en cascada (on_delete=CASCADE) al ejecutar other.delete().
+
+true !== false
+
+
+[ PASS ] CP-AUT-05 (0.44 ms) - Protección contra inyección de fórmulas CSV/Excel (OWASP CSV Injection) en escape_export_value
+         Responsable : Juan Torres
+         Técnica     : Partición de Equivalencia (Seguridad OWASP)
+         Archivo SUT : src/backend/InvenTree/InvenTree/helpers.py#L513-L535
+         Resultado   : 6 payloads de inyección de fórmulas neutralizados con prefijo (') y 5 valores numéricos/alfanuméricos legítimos preservados sin alteración.
+
+[ FAIL ] CP-AUT-06 (0.291 ms) - Enmascaramiento seguro de tokens de API en valores límite (sanitize_token con back=0)
+         Responsable : Juan Torres
+         Técnica     : Análisis de Valores Límite (BVA)
+         Archivo SUT : src/backend/InvenTree/InvenTree/helpers.py#L1173-L1196
+         Resultado   : Fallo de aserción detectado: DEF-02 DETECTADO en helpers.py#L1195: Al invocar sanitize_token(token, front=8, back=0), la expresión Python "token_value[-back:]" evalúa "token_value[-0:]" == "token_value[0:]", concatenando el token secreto íntegro al final: "inv-9f8e********************************inv-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a"
+
+[ FAIL ] CP-AUT-07 (0.333 ms) - Extracción y acotamiento de enteros sin signo (extract_int con allow_negative=False)
+         Responsable : Emanuel Ortiz
+         Técnica     : Partición de Equivalencia + Valores Límite (BVA)
+         Archivo SUT : src/backend/InvenTree/InvenTree/helpers.py#L38-L123
+         Resultado   : Fallo de aserción detectado: DEF-03 DETECTADO en helpers.py#L67-L84: extract_int("-500", clip=100, allow_negative=False) retorna -100 (negativo) porque do_clip hace "elif value < -clip: return -clip" antes de aplicar abs(value).
+
+[ PASS ] CP-AUT-08 (0.112 ms) - Verificación de ciclo de vida de ApiToken, políticas MFA y matriz RBAC (RuleSetEnum)
+         Responsable : Juan Torres
+         Técnica     : Tabla de Decisión + Transición de Estados
+         Archivo SUT : src/backend/InvenTree/users/authentication.py#L63-L103
+         Resultado   : Las 5 guardas de autenticación en validate_api_token y los 12 RuleSets RBAC (48 combinaciones CRUD) están verificados correctamente.
+
+----------------------------------------------------------------------------------------
+RESUMEN: Total=8 | Aprobados=5 (62.5%) | Fallidos=3 (37.5% - Defectos Reales Detectados: DEF-01, DEF-02, DEF-03) | Tiempo=11.369 ms
+========================================================================================

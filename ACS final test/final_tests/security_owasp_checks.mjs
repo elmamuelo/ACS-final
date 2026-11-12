@@ -1,0 +1,77 @@
+/**
+ * Evaluación de Seguridad basada en OWASP Top 10 (2021) y Modelo de Amenazas de InvenTree
+ * (Nota: Se omiten SonarQube y OWASP ZAP conforme a los lineamientos del encargo)
+ * Responsable Principal: Juan Torres
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPORTS_DIR = path.resolve(__dirname, '..', 'reports');
+
+fs.mkdirSync(REPORTS_DIR, { recursive: true });
+
+const owaspFindings = [
+  {
+    id: 'SEC-OWASP-01',
+    owaspCategory: 'A02:2021 - Cryptographic Failures / A04:2021 - Insecure Design',
+    title: 'Exposición de Token Secreto en texto plano en sanitize_token() con valor límite back=0 (DEF-02)',
+    location: 'src/backend/InvenTree/InvenTree/helpers.py#L1173-L1196',
+    riskLevel: 'Alto',
+    status: 'Vulnerabilidad Detectada',
+    evidence: 'En sanitize_token(token_value, front=8, back=0), la expresión token_value[-back:] se evalúa como token_value[-0:] == token_value[0:], concatenando el token completo al final de la máscara.',
+    mitigation: 'Validar explícitamente "back_part = token_value[-back:] if back > 0 else \'\'" y asegurar que front >= 0 y back >= 0 antes de hacer slicing.'
+  },
+  {
+    id: 'SEC-OWASP-02',
+    owaspCategory: 'A02:2021 - Cryptographic Failures (CWE-328: Use of Weak Hash)',
+    title: 'Uso de algoritmo MD5 sin sal en hash_barcode()',
+    location: 'src/backend/InvenTree/InvenTree/helpers.py#L984-L997',
+    riskLevel: 'Bajo / Informativo',
+    status: 'Riesgo Aceptado / Mejorable',
+    evidence: 'La línea 995 ejecuta "barcode_hash = hashlib.md5(str(barcode_data).encode())". Aunque se usa para indexación rápida de códigos de barras y no para contraseñas, MD5 presenta colisiones conocidas.',
+    mitigation: 'Migrar progresivamente a SHA-256 truncado o BLAKE2b (hashlib.blake2b(digest_size=16)) para evitar colisiones intencionales de códigos QR/barras.'
+  },
+  {
+    id: 'SEC-OWASP-03',
+    owaspCategory: 'A03:2021 - Injection (CSV Formula Injection & Content-Disposition Header)',
+    title: 'Escape contra CSV Injection implementado correctamente, pero falta sanitización de comillas internas en WrapWithQuotes()',
+    location: 'src/backend/InvenTree/InvenTree/helpers.py#L484-L570',
+    riskLevel: 'Medio',
+    status: 'Control Parcialmente Efectivo',
+    evidence: 'escape_export_value() mitiga eficazmente fórmulas que inician con (=, +, -, @, \\t, \\r). Sin embargo, DownloadFile() usa WrapWithQuotes(filename) en la cabecera Content-Disposition sin escapar comillas dobles internas ni saltos de línea.',
+    mitigation: 'Sanitizar el nombre de archivo en DownloadFile() eliminando caracteres de control (\\r, \\n) y escapando comillas dobles internas (filename.replace(\'"\', \'\\"\')).'
+  },
+  {
+    id: 'SEC-OWASP-04',
+    owaspCategory: 'A07:2021 - Identification and Authentication Failures',
+    title: 'Tokens de API Bearer sin restricción de IP ni segundo factor por petición (Documentado en Threat Model)',
+    location: 'src/backend/InvenTree/users/authentication.py#L63-L103 y docs/docs/concepts/threat_model.md#L32',
+    riskLevel: 'Medio',
+    status: 'Mitigado Parcialmente',
+    evidence: 'validate_api_token() verifica activación del usuario, revocación, expiración y cumplimiento global de MFA (líneas 75-91), pero según threat_model.md los tokens no están acotados por IP y un token filtrado permite acceso directo hasta su revocación.',
+    mitigation: 'Implementar listas blancas de rangos CIDR opcionales por ApiToken, rotación corta de expiración por defecto y alertas de uso desde IPs inusuales.'
+  },
+  {
+    id: 'SEC-OWASP-05',
+    owaspCategory: 'A01:2021 - Broken Access Control / A08:2021 - Software and Data Integrity Failures',
+    title: 'Ejecución de Plugins y Plantillas con acceso total al proceso del servidor y base de datos',
+    location: 'docs/docs/concepts/threat_model.md#L21-L34',
+    riskLevel: 'Alto (Arquitectónico)',
+    status: 'Documentado en Modelo de Amenazas',
+    evidence: 'Los plugins y plantillas tienen acceso completo al sistema de archivos, variables de entorno y base de datos del proceso worker/servidor. Además, los adjuntos se sirven bajo el mismo dominio por defecto (riesgo de Stored XSS).',
+    mitigation: 'Restringir la instalación de plugins exclusivamente a administradores verificados, servir adjuntos desde un subdominio aislado con Content-Security-Policy: sandbox y X-Content-Type-Options: nosniff.'
+  }
+];
+
+fs.writeFileSync(
+  path.join(REPORTS_DIR, 'security_owasp_evaluation.json'),
+  JSON.stringify({ evaluatedAt: new Date().toISOString(), findings: owaspFindings }, null, 2),
+  'utf8'
+);
+
+console.log(`Evaluación de seguridad OWASP Top 10 completada: ${owaspFindings.length} hallazgos documentados.`);
+

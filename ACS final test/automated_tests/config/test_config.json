@@ -1,0 +1,33 @@
+{
+  "project": "InvenTree - Open Source Inventory Management System",
+  "version": "1.7.0",
+  "api_version": 449,
+  "repository_commit": "af5055b33",
+  "course": "Aseguramiento de la Calidad (ACS) - Ingeniería de Sistemas - ITM",
+  "team": [
+    {
+      "name": "Emanuel Ortiz",
+      "role": "Líder de QA, Automatización Backend y Pruebas de Rendimiento",
+      "modules": ["stock", "performance", "helpers"]
+    },
+    {
+      "name": "Manuela Sánchez",
+      "role": "Analista QA Funcional, Diseño de Casos (EP/BVA) y Gestión de Defectos",
+      "modules": ["part", "order", "validators"]
+    },
+    {
+      "name": "Juan Torres",
+      "role": "Ingeniero de Automatización E2E/API, CI/CD y Seguridad",
+      "modules": ["users", "authentication", "frontend_e2e", "security"]
+    }
+  ],
+  "sla_thresholds": {
+    "max_p95_response_ms": 200,
+    "max_avg_response_ms": 80,
+    "max_error_rate_percent": 1.0,
+    "min_throughput_rps": 100,
+    "max_serial_batch_size": 1000,
+    "int_clip_max": 2147483647
+  }
+}
+
